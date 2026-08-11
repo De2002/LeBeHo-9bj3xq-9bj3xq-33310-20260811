@@ -24,6 +24,20 @@ const TAGLINES = [
   'What would you say if no one knew it was you?',
   "What's the thought you can't stop thinking?",
   'What does the world need to hear from you?',
+  'What\'s something you think people get completely wrong?',
+  'What\'s something you\'ve always wanted to say?',
+  'What do you wish more people understood?',
+  'What\'s a truth people don\'t like hearing?',
+  'What\'s something you strongly agree or disagree with?',
+  'What deserves to be said out loud?',
+  'What\'s something you believe that others might disagree with?',
+  'What are we pretending isn\'t true?',
+  'What\'s something everyone should be talking about?',
+  'What\'s your take? What would you say if nobody could judge you?',
+  'What\'s an uncomfortable truth you\'ve learned?',
+  'What\'s something people need to hear?',
+  'What popular opinion do you disagree with?',
+  'What\'s something you\'ve changed your mind about?',
 ];
 
 function HeroSlideshow() {
