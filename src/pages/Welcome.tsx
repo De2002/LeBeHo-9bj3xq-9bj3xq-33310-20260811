@@ -168,7 +168,7 @@ export default function Welcome() {
           Your inbox. Their Points. Your perspective.
         </p>
 
-        {/* Authenticated: go to inbox */
+        {/* Authenticated: go to inbox */}
         {user ? (
           <button
             onClick={() => navigate('/inbox')}
