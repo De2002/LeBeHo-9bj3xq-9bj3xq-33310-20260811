@@ -45,6 +45,7 @@ function HeroSlideshow() {
   const [next, setNext] = useState(1);
   const [fading, setFading] = useState(false);
   const [taglineIdx, setTaglineIdx] = useState(0);
+  const [typedTagline, setTypedTagline] = useState('');
   const [taglineFading, setTaglineFading] = useState(false);
 
   const advance = useCallback(() => {
@@ -78,6 +79,19 @@ function HeroSlideshow() {
   }, [advance]);
 
   useEffect(() => {
+    const tagline = TAGLINES[taglineIdx];
+    setTypedTagline('');
+    let character = 0;
+    const timer = setInterval(() => {
+      character += 1;
+      setTypedTagline(tagline.slice(0, character));
+      if (character >= tagline.length) clearInterval(timer);
+    }, 55);
+
+    return () => clearInterval(timer);
+  }, [taglineIdx]);
+
+  useEffect(() => {
     const getDelay = () => 7000 + Math.random() * 4000;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
@@ -108,10 +122,12 @@ function HeroSlideshow() {
 
       <div className="absolute inset-x-0 bottom-0 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:p-14">
         <p
-          className="font-serif text-white/95 text-2xl sm:text-[1.7rem] lg:text-2xl italic leading-snug max-w-lg bg-black/35 px-3 py-2 rounded-lg backdrop-blur-[2px] lg:bg-transparent lg:px-0 lg:py-0 lg:rounded-none lg:backdrop-blur-0"
+          aria-live="polite"
+          className="font-serif text-white/90 text-sm sm:text-base lg:text-2xl leading-relaxed max-w-lg bg-black/35 px-3 py-2 rounded-lg backdrop-blur-[2px] lg:bg-transparent lg:px-0 lg:py-0 lg:rounded-none lg:backdrop-blur-0"
           style={{ opacity: taglineFading ? 0 : 1, transition: 'opacity 0.6s ease-in-out' }}
         >
-          "{TAGLINES[taglineIdx]}"
+          {typedTagline}
+          <span aria-hidden="true" className="ml-0.5 inline-block w-px h-4 lg:h-6 align-[-0.15em] bg-white/70" />
         </p>
       </div>
     </div>
