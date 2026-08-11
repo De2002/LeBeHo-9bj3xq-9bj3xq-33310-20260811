@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ─── Core backgrounds ─── */
+    --background:        0 0% 5%;        /* near-black */
+    --surface:           0 0% 8%;
+    --surface-hover:     0 0% 11%;
+
+    /* ─── Sidebar ─── */
+    --sidebar-bg:        0 0% 4%;
+
+    /* ─── Row states ─── */
+    --row-unread-bg:     0 0% 8%;
+    --row-unread-hover:  0 0% 11%;
+    --row-read-bg:       0 0% 5%;
+    --row-read-hover:    0 0% 8%;
+    --row-border:        0 0% 13%;
+
+    /* ─── Text ─── */
+    --text-primary:      0 0% 96%;
+    --text-secondary:    0 0% 65%;
+    --text-muted:        0 0% 40%;
+
+    /* ─── Brand: black & white ─── */
+    --accent-primary:    0 0% 100%;      /* white accent */
+    --accent-hover:      0 0% 88%;
+    --accent-fg:         0 0% 0%;        /* black text on white */
+
+    /* ─── Borders / inputs ─── */
+    --border-subtle:     0 0% 15%;
+    --input-bg:          0 0% 10%;
+    --input-hover:       0 0% 14%;
+
+    /* ─── Nav ─── */
+    --nav-active-bg:     0 0% 100% / 0.10;
+    --nav-active-fg:     0 0% 100%;
+    --nav-hover-bg:      0 0% 12%;
+
+    /* ─── Geo badge colors ─── */
+    --geo-global-bg:     0 0% 14%;
+    --geo-global-fg:     0 0% 80%;
+    --geo-country-bg:    0 0% 14%;
+    --geo-country-fg:    0 0% 75%;
+    --geo-city-bg:       0 0% 14%;
+    --geo-city-fg:       0 0% 70%;
+
+    /* shadcn compat */
+    --foreground:        0 0% 96%;
+    --card:              0 0% 8%;
+    --card-foreground:   0 0% 96%;
+    --popover:           0 0% 8%;
+    --popover-foreground:0 0% 96%;
+    --primary:           0 0% 100%;
+    --primary-foreground:0 0% 0%;
+    --secondary:         0 0% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted:             0 0% 15%;
+    --muted-foreground:  0 0% 40%;
+    --accent:            0 0% 15%;
+    --accent-foreground: 0 0% 96%;
+    --destructive:       0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border:            0 0% 15%;
+    --input:             0 0% 10%;
+    --ring:              0 0% 100%;
+    --radius:            0.75rem;
+
+    --sidebar-background:   0 0% 4%;
+    --sidebar-foreground:   0 0% 65%;
+    --sidebar-primary:      0 0% 100%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent:       0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border:       0 0% 13%;
+    --sidebar-ring:         0 0% 100%;
+  }
+}
+
+/* ─── Light theme overrides ─── */
+html.light {
+  --background:        0 0% 100%;
+  --surface:           0 0% 100%;
+  --surface-hover:     0 0% 96%;
+
+  --sidebar-bg:        0 0% 96%;
+
+  --row-unread-bg:     0 0% 100%;
+  --row-unread-hover:  0 0% 97%;
+  --row-read-bg:       0 0% 99%;
+  --row-read-hover:    0 0% 96%;
+  --row-border:        0 0% 88%;
+
+  --text-primary:      0 0% 5%;
+  --text-secondary:    0 0% 28%;
+  --text-muted:        0 0% 50%;
+
+  --accent-primary:    0 0% 5%;        /* near-black accent on white */
+  --accent-hover:      0 0% 18%;
+  --accent-fg:         0 0% 100%;
+
+  --border-subtle:     0 0% 87%;
+  --input-bg:          0 0% 96%;
+  --input-hover:       0 0% 91%;
+
+  --nav-active-bg:     0 0% 5% / 0.08;
+  --nav-active-fg:     0 0% 5%;
+  --nav-hover-bg:      0 0% 91%;
+
+  --geo-global-bg:     0 0% 92%;
+  --geo-global-fg:     0 0% 25%;
+  --geo-country-bg:    0 0% 92%;
+  --geo-country-fg:    0 0% 25%;
+  --geo-city-bg:       0 0% 92%;
+  --geo-city-fg:       0 0% 25%;
+
+  --foreground:        0 0% 5%;
+  --card:              0 0% 100%;
+  --card-foreground:   0 0% 5%;
+  --popover:           0 0% 100%;
+  --popover-foreground: 0 0% 5%;
+  --primary:           0 0% 5%;
+  --primary-foreground: 0 0% 100%;
+  --secondary:         0 0% 87%;
+  --secondary-foreground: 0 0% 5%;
+  --muted:             0 0% 92%;
+  --muted-foreground:  0 0% 50%;
+  --accent:            0 0% 92%;
+  --accent-foreground: 0 0% 5%;
+  --destructive:       0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border:            0 0% 87%;
+  --input:             0 0% 96%;
+  --ring:              0 0% 5%;
+
+  --sidebar-background: 0 0% 96%;
+  --sidebar-foreground: 0 0% 28%;
+  --sidebar-primary:    0 0% 5%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:     0 0% 91%;
+  --sidebar-accent-foreground: 0 0% 5%;
+  --sidebar-border:     0 0% 88%;
+  --sidebar-ring:       0 0% 5%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .font-serif {
+    font-family: 'DM Serif Display', Georgia, serif;
+  }
+
+  /* Hide scrollbar for horizontal overflow */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}

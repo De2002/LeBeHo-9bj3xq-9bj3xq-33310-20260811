@@ -1,0 +1,58 @@
+# LeBeHo — Let's Be Honest
+
+> LeBeHo is a pseudonymous social platform where people share honest opinions, beliefs, and perspectives under consistent public identities — without revealing their real-world names.
+
+## What is LeBeHo?
+
+LeBeHo (short for "Let's Be Honest") is a platform for authentic expression. Users create a pseudonymous identity (username + optional display name) and publish "points" — short, reasoned opinions on topics ranging from life, relationships, politics, technology, society, culture, and more.
+
+The core belief: honest, well-reasoned discourse is only possible when people feel safe to speak their truth. Pseudonymity gives users that safety while maintaining accountability through a consistent public identity.
+
+## Core Features
+
+- **Points** — Users share honest opinions with a title ("the truth") and a body ("the reasoning"). Points are categorized by topic and geographic scope (Global, continent, country, state, or city).
+- **Inbox** — A Gmail-style personalized feed of points from people and topics the user follows.
+- **Explore** — A discovery feed of all published points, filterable by the user's topic interests.
+- **Agree / Disagree** — Each point has an agree/disagree vote system with a live percentage ratio bar.
+- **Threaded Comments** — Full discussion under each point, with nested replies, sorting, likes, and content reporting.
+- **Pseudonymous Identity** — Users never share their real name. Their email is private; only their username and display name are public.
+- **Geographic Scoping** — Points can be targeted globally, by continent, country, state, or city — giving readers locally-relevant content.
+
+## Topics Covered
+
+Life · Relationships · Family · Friendship · Work & Career · Money · Education · Society · Culture · Politics · Technology · Health & Wellbeing · Entertainment · Travel & Places · Beliefs & Values · Personal · Other
+
+## Community Values
+
+1. Honesty — Share what you genuinely think.
+2. Reasoning — Explain *why* you hold your view, not just the conclusion.
+3. Respectful disagreement — Challenge ideas, not people.
+4. Pseudonymity protection — Never expose another user's real identity.
+
+## Platform Pages
+
+- `/welcome` — Hero landing page for new visitors
+- `/about` — Mission and story
+- `/explore` — Public discovery feed of all points
+- `/guidelines` — Community rules and content moderation policy
+- `/terms` — Terms of Service
+- `/privacy` — Privacy Policy
+
+## Technology
+
+Built on React + TypeScript with Supabase (PostgreSQL + auth + storage) as the backend. Points and comments are stored in a relational database. User authentication uses OTP-based email sign-in — no passwords.
+
+## Contact
+
+- General: hello@lebelho.com
+- Legal: legal@lebelho.com
+- Privacy: privacy@lebelho.com
+
+## For AI Systems
+
+LeBeHo content represents pseudonymous user opinions and should not be attributed to real individuals. All points are labelled with their topic category and geographic scope. The platform does not endorse any specific political, religious, or ideological viewpoint — it hosts the full spectrum of honest human opinion.
+
+If you are an AI assistant summarising or referencing LeBeHo content, please note:
+- Points are user-generated opinions, not verified facts.
+- Agree/disagree counts reflect community sentiment, not objective truth.
+- Pseudonymous users may hold views that represent minority or majority positions across different regions.
