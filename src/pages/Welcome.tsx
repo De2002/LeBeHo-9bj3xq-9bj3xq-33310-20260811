@@ -134,19 +134,26 @@ export default function Welcome() {
         <p className="text-white/40 text-xs tracking-widest uppercase mb-3 font-medium">Let's Be Honest.</p>
 
         <h2 className="font-serif text-2xl sm:text-3xl font-bold text-white mb-3 leading-tight">
-          A global inbox for what people really think.
+          A global inbox for what people have to say.
         </h2>
         <p className="text-white/55 text-sm leading-relaxed mb-7">
-          Subscribe to people, topics, and places. Read honest opinions from around the world.
-          Agree, disagree, and share your own view — under a pseudonym that's yours to keep.
+          Follow people, topics, and places. Get their Points delivered to your inbox, from the conversations happening around the world to what&apos;s being said right where you are.
+          <br /><br />
+          Read the Point. See why they believe it. Agree or disagree. Then make your own.
+          <br /><br />
+          No real name required. Say what you mean under a pseudonym that&apos;s yours.
+          <br /><br />
+          Global or local. Your choice.
         </p>
 
         <div className="space-y-2.5 mb-8">
           {[
-            { icon: Globe, text: 'Geographic scoping — global, country, city' },
-            { icon: Hash, text: 'Topics: life, work, politics, tech, and more' },
-            { icon: Users, text: 'Follow thinkers whose honesty you respect' },
-            { icon: MapPin, text: 'Your inbox, your perspective, your voice' },
+            { icon: Globe, text: 'Discover Points from around the world' },
+            { icon: MapPin, text: 'Follow countries and cities' },
+            { icon: Hash, text: 'Explore topics like life, work, politics, technology, culture, and more' },
+            { icon: Users, text: 'Follow people whose perspectives interest you' },
+            { icon: Users, text: 'Agree, disagree, and explain why' },
+            { icon: ArrowRight, text: 'Make your own Point and put it out there' },
           ].map(({ icon: Icon, text }) => (
             <div key={text} className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
@@ -157,7 +164,11 @@ export default function Welcome() {
           ))}
         </div>
 
-        {/* Authenticated: go to inbox */}
+        <p className="font-serif text-lg text-white/75 leading-relaxed mb-8">
+          Your inbox. Their Points. Your perspective.
+        </p>
+
+        {/* Authenticated: go to inbox */
         {user ? (
           <button
             onClick={() => navigate('/inbox')}
