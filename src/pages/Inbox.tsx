@@ -75,10 +75,39 @@ export default function Inbox() {
     setLoading(true);
     const clearedAt = getClearedAt();
 
+    if (!user) {
+      setThoughts([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: follows, error: followsError } = await supabase
+      .from('user_follows')
+      .select('following_id')
+      .eq('follower_id', user.id);
+
+    if (followsError) {
+      console.error('Inbox follows fetch error:', followsError.message);
+      setThoughts([]);
+      setLoading(false);
+      return;
+    }
+
+    const followedIds = [...new Set((follows ?? [])
+      .map(row => row.following_id as string)
+      .filter(id => Boolean(id) && id !== user.id))];
+
+    if (followedIds.length === 0) {
+      setThoughts([]);
+      setLoading(false);
+      return;
+    }
+
     let query = supabase
       .from('thoughts')
       .select('*, author:user_profiles(id, username, display_name, avatar_url)')
       .eq('is_draft', false)
+      .in('author_id', followedIds)
       .order('published_at', { ascending: false })
       .limit(100);
 
@@ -99,7 +128,7 @@ export default function Inbox() {
     const read  = getReadIds();
     setThoughts((data ?? []).map(r => rowToThought(r as Record<string, unknown>, saved, read)));
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => { fetchThoughts(); }, [fetchThoughts]);
 
@@ -108,7 +137,11 @@ export default function Inbox() {
     const isSaved = savedIds.has(id);
     setSavedIdsState(prev => {
       const next = new Set(prev);
-      isSaved ? next.delete(id) : next.add(id);
+      if (isSaved) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       persistSaved(next);
       setThoughts(ts => ts.map(t => t.id === id ? { ...t, isSaved: !isSaved } : t));
       return next;
