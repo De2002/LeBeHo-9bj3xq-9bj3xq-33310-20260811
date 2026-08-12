@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/features/SEOHead';
-import { Megaphone, Globe, Shield, BookOpen, Lock, Info, Users, MessageSquare, CheckCircle } from 'lucide-react';
+import { Globe, Shield, BookOpen, Lock, Users, MessageSquare, CheckCircle } from 'lucide-react';
+import { useTheme } from '@/components/features/ThemeProvider';
+import lebehoIconDark from '@/assets/lebeho-icon-dark.png';
+import lebehoIconLight from '@/assets/lebeho-icon-light.png';
 
 export default function About() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const brandIcon = theme === 'dark' ? lebehoIconLight : lebehoIconDark;
+  const brandIconClassName = theme === 'dark'
+    ? 'object-contain rounded-full bg-white p-1'
+    : 'object-contain';
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--text-primary))]">
@@ -17,7 +25,8 @@ export default function About() {
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))] transition-colors">
             ← Back
           </button>
-          <button onClick={() => navigate('/inbox')} className="flex items-baseline gap-0.5">
+          <button onClick={() => navigate('/inbox')} className="flex items-center gap-1.5" aria-label="Go to LeBeHo home">
+            <img src={brandIcon} alt="" className={`w-6 h-6 ${brandIconClassName}`} />
             <span className="font-serif text-lg font-bold text-[hsl(var(--accent-primary))]">Le</span>
             <span className="font-serif text-lg font-bold text-[hsl(var(--text-primary))]">BeHo</span>
           </button>
@@ -29,7 +38,7 @@ export default function About() {
         {/* Hero */}
         <div className="text-center mb-12">
           <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--accent-primary))]/10 flex items-center justify-center mx-auto mb-5">
-            <Megaphone className="w-8 h-8 text-[hsl(var(--accent-primary))]" />
+            <img src={brandIcon} alt="LeBeHo" className={`w-10 h-10 ${brandIconClassName}`} />
           </div>
           <h1 className="font-serif text-4xl font-bold text-[hsl(var(--text-primary))] mb-4">Let's Be Honest.</h1>
           <p className="text-lg text-[hsl(var(--text-secondary))] leading-relaxed max-w-lg mx-auto">
