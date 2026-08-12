@@ -45,6 +45,7 @@ function HeroSlideshow() {
   const [next, setNext] = useState(1);
   const [fading, setFading] = useState(false);
   const [taglineIdx, setTaglineIdx] = useState(0);
+  const [typedTagline, setTypedTagline] = useState('');
   const [taglineFading, setTaglineFading] = useState(false);
 
   const advance = useCallback(() => {
@@ -78,6 +79,19 @@ function HeroSlideshow() {
   }, [advance]);
 
   useEffect(() => {
+    const tagline = TAGLINES[taglineIdx];
+    setTypedTagline('');
+    let character = 0;
+    const timer = setInterval(() => {
+      character += 1;
+      setTypedTagline(tagline.slice(0, character));
+      if (character >= tagline.length) clearInterval(timer);
+    }, 55);
+
+    return () => clearInterval(timer);
+  }, [taglineIdx]);
+
+  useEffect(() => {
     const getDelay = () => 7000 + Math.random() * 4000;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
@@ -106,12 +120,14 @@ function HeroSlideshow() {
       <div className="absolute inset-0 bg-black/60" />
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-      <div className="absolute inset-x-0 bottom-0 p-8 lg:p-14">
+      <div className="absolute inset-x-0 bottom-0 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] lg:p-14">
         <p
-          className="font-serif text-white/90 text-xl lg:text-2xl italic leading-snug max-w-lg"
+          aria-live="polite"
+          className="font-serif text-white/90 text-sm sm:text-base lg:text-2xl leading-relaxed max-w-lg bg-black/35 px-3 py-2 rounded-lg backdrop-blur-[2px] lg:bg-transparent lg:px-0 lg:py-0 lg:rounded-none lg:backdrop-blur-0"
           style={{ opacity: taglineFading ? 0 : 1, transition: 'opacity 0.6s ease-in-out' }}
         >
-          "{TAGLINES[taglineIdx]}"
+          {typedTagline}
+          <span aria-hidden="true" className="ml-0.5 inline-block w-px h-4 lg:h-6 align-[-0.15em] bg-white/70" />
         </p>
       </div>
     </div>
@@ -130,7 +146,7 @@ export default function Welcome() {
         url="/welcome"
       />
       {/* Slideshow panel */}
-      <div className="relative lg:flex-1 h-[50vh] lg:h-auto">
+      <div className="relative lg:flex-1 h-[clamp(18rem,56svh,32rem)] lg:h-auto">
         <HeroSlideshow />
         <div className="hidden lg:flex absolute top-10 left-10 items-baseline gap-1 z-10">
           <span className="font-serif text-5xl font-bold text-white tracking-tight">Le</span>
@@ -139,18 +155,18 @@ export default function Welcome() {
       </div>
 
       {/* Right panel */}
-      <div className="lg:w-[460px] flex flex-col justify-center px-5 sm:px-8 py-10 lg:py-12 lg:px-12 bg-black border-l border-white/[0.08]">
-        <div className="lg:hidden mb-6 flex items-baseline gap-1">
+      <div className="lg:w-[460px] flex flex-col justify-center px-5 sm:px-8 py-7 lg:py-12 lg:px-12 bg-black border-l border-white/[0.08]">
+        <div className="lg:hidden mb-4 flex items-baseline gap-1">
           <span className="font-serif text-4xl font-bold text-white">Le</span>
           <span className="font-serif text-4xl font-bold text-white/50">BeHo</span>
         </div>
 
-        <p className="text-white/40 text-xs tracking-widest uppercase mb-3 font-medium">Let's Be Honest.</p>
+        <p className="text-white/40 text-xs tracking-widest uppercase mb-2 lg:mb-3 font-medium">Let's Be Honest.</p>
 
-        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-white mb-3 leading-tight">
+        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-white mb-2 lg:mb-3 leading-tight">
           A global inbox for what people have to say.
         </h2>
-        <p className="text-white/55 text-sm leading-relaxed mb-7">
+        <p className="text-white/55 text-sm leading-relaxed mb-5 lg:mb-7">
           Follow people, topics, and places. Get their Points delivered to your inbox, from the conversations happening around the world to what&apos;s being said right where you are.
           <br /><br />
           Read the Point. See why they believe it. Agree or disagree. Then make your own.
@@ -160,7 +176,7 @@ export default function Welcome() {
           Global or local. Your choice.
         </p>
 
-        <div className="space-y-2.5 mb-8">
+        <div className="space-y-2 mb-6 lg:space-y-2.5 lg:mb-8">
           {[
             { icon: Globe, text: 'Discover Points from around the world' },
             { icon: MapPin, text: 'Follow countries and cities' },
@@ -178,7 +194,7 @@ export default function Welcome() {
           ))}
         </div>
 
-        <p className="font-serif text-lg text-white/75 leading-relaxed mb-8">
+        <p className="font-serif text-lg text-white/75 leading-relaxed mb-6 lg:mb-8">
           Your inbox. Their Points. Your perspective.
         </p>
 
