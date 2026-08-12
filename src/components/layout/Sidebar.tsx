@@ -4,6 +4,8 @@ import { AvatarBubble } from '@/components/features/AvatarBubble';
 import { useTheme } from '@/components/features/ThemeProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
+import lebehoIconDark from '@/assets/lebeho-icon-dark.png';
+import lebehoIconLight from '@/assets/lebeho-icon-light.png';
 import {
   Inbox, Globe, Users, Star, Megaphone, FileText, PenSquare,
   Settings, Sun, Moon, LogOut, Bell
@@ -56,9 +58,16 @@ export function Sidebar() {
     <aside className="flex flex-col h-full w-64 bg-[hsl(var(--sidebar-bg))] border-r border-[hsl(var(--border-subtle))] select-none">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-[hsl(var(--border-subtle))]">
-        <div className="flex items-baseline gap-1">
-          <span className="font-serif text-2xl font-bold text-[hsl(var(--accent-primary))]">Le</span>
-          <span className="font-serif text-2xl font-bold text-[hsl(var(--text-primary))]">BeHo</span>
+        <div className="flex items-center gap-2">
+          <img
+            src={theme === 'dark' ? lebehoIconLight : lebehoIconDark}
+            alt="LeBeHo"
+            className={cn('w-7 h-7 object-contain flex-shrink-0', theme === 'dark' ? 'invert' : '')}
+          />
+          <div className="flex items-baseline gap-0.5">
+            <span className="font-serif text-2xl font-bold text-[hsl(var(--accent-primary))]">Le</span>
+            <span className="font-serif text-2xl font-bold text-[hsl(var(--text-primary))]">BeHo</span>
+          </div>
         </div>
         <p className="text-[10px] text-[hsl(var(--text-muted))] tracking-widest uppercase mt-0.5">
           Let's Be Honest.

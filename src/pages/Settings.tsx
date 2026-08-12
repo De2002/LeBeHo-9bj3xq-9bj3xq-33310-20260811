@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useTheme } from '@/components/features/ThemeProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,10 +6,10 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentUser, updateUser, getInboxBg, setInboxBg } from '@/lib/storage';
 import { SEOHead } from '@/components/features/SEOHead';
 import {
-  Sun, Moon, Settings as SettingsIcon, Palette, Info,
+  Sun, Moon, Palette, Info,
   User as UserIcon, Save, X, AlertCircle, Globe, Hash, Check,
-  ChevronDown, Image as ImageIcon, Upload, Trash2, Sliders,
-  Download, LogOut, AlertTriangle, RefreshCw, Shield
+  Image as ImageIcon, Upload, Trash2, Sliders,
+  Download, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -17,23 +17,6 @@ import { CATEGORIES } from '@/types';
 import { useNavigate } from 'react-router-dom';
 
 type Theme = 'dark' | 'light';
-
-// ─── Geo Interest Data ────────────────────────────────────────────────────
-interface GeoInterestContinent {
-  name: string;
-  icon: string;
-  countries: string[];
-}
-
-const GEO_INTERESTS: GeoInterestContinent[] = [
-  { name: 'Africa', icon: '🌍', countries: ['Nigeria', 'Kenya', 'Ghana', 'South Africa', 'Ethiopia', 'Tanzania', 'Egypt', 'Uganda', 'Rwanda', 'Senegal', 'Ivory Coast', 'Cameroon', 'Morocco', 'Angola', 'Mozambique'] },
-  { name: 'North America', icon: '🌎', countries: ['United States', 'Canada', 'Mexico', 'Jamaica', 'Trinidad & Tobago', 'Guatemala', 'Haiti', 'Cuba', 'Honduras', 'Dominican Republic'] },
-  { name: 'South America', icon: '🌎', countries: ['Brazil', 'Argentina', 'Colombia', 'Chile', 'Peru', 'Venezuela', 'Ecuador', 'Bolivia', 'Paraguay', 'Uruguay'] },
-  { name: 'Europe', icon: '🌍', countries: ['United Kingdom', 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Sweden', 'Poland', 'Portugal', 'Belgium', 'Switzerland', 'Norway', 'Denmark', 'Finland', 'Ireland'] },
-  { name: 'Asia', icon: '🌏', countries: ['India', 'China', 'Japan', 'Indonesia', 'Pakistan', 'Bangladesh', 'Philippines', 'Vietnam', 'Thailand', 'Malaysia', 'South Korea', 'Singapore', 'Sri Lanka', 'Myanmar', 'Nepal'] },
-  { name: 'Middle East', icon: '🌍', countries: ['UAE', 'Saudi Arabia', 'Turkey', 'Israel', 'Jordan', 'Lebanon', 'Qatar', 'Kuwait', 'Bahrain', 'Oman'] },
-  { name: 'Oceania', icon: '🌏', countries: ['Australia', 'New Zealand', 'Papua New Guinea', 'Fiji', 'Solomon Islands'] },
-];
 
 const THEME_OPTIONS = [
   { id: 'dark' as Theme, label: 'Dark', icon: Moon, previewBg: '#0d0d0d', previewAccent: '#ffffff', previewLine1: '#262626', previewLine2: '#1a1a1a' },
@@ -71,91 +54,111 @@ function SectionCard({ icon, title, subtitle, children }: { icon: React.ReactNod
   );
 }
 
-// ─── Geo Interests ────────────────────────────────────────────────────────
+// ─── Geo Interests (DB-backed) ────────────────────────────────────────────
+interface PlatformScope {
+  id: string;
+  label: string;
+  scope_type: 'Global' | 'Country' | 'City';
+  parent_label: string | null;
+}
+
 function GeoInterestsPanel({ selected, onChange }: { selected: Set<string>; onChange: (s: Set<string>) => void }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [scopes, setScopes] = useState<PlatformScope[]>([]);
+  const [loadingScopes, setLoadingScopes] = useState(true);
+  const [search, setSearch] = useState('');
 
-  const toggle = (item: string) => {
+  useEffect(() => {
+    supabase
+      .from('platform_scopes')
+      .select('id, label, scope_type, parent_label')
+      .order('sort_order', { ascending: true })
+      .order('label', { ascending: true })
+      .then(({ data }) => {
+        setScopes((data ?? []) as PlatformScope[]);
+        setLoadingScopes(false);
+      });
+  }, []);
+
+  const toggle = (label: string) => {
     const next = new Set(selected);
-    if (next.has(item)) next.delete(item); else next.add(item);
+    if (next.has(label)) next.delete(label); else next.add(label);
     onChange(next);
   };
 
-  const toggleContinent = (continent: GeoInterestContinent) => {
-    const allSelected = continent.countries.every(c => selected.has(c));
-    const next = new Set(selected);
-    if (allSelected) {
-      next.delete(continent.name);
-      continent.countries.forEach(c => next.delete(c));
-    } else {
-      next.add(continent.name);
-      continent.countries.forEach(c => next.add(c));
-    }
-    onChange(next);
+  const q = search.trim().toLowerCase();
+  const filtered = scopes.filter(s =>
+    !q || s.label.toLowerCase().includes(q) || (s.parent_label ?? '').toLowerCase().includes(q)
+  );
+  const grouped = {
+    Global: filtered.filter(s => s.scope_type === 'Global'),
+    Country: filtered.filter(s => s.scope_type === 'Country'),
+    City: filtered.filter(s => s.scope_type === 'City'),
   };
+
+  const typeBadge = (t: string) =>
+    t === 'Global' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+    : t === 'Country' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    : 'bg-purple-500/10 text-purple-400 border-purple-500/20';
 
   return (
-    <div className="space-y-1.5">
-      {GEO_INTERESTS.map(continent => {
-        const allSelected = continent.countries.every(c => selected.has(c));
-        const someSelected = continent.countries.some(c => selected.has(c)) || selected.has(continent.name);
-        const isExpanded = expanded === continent.name;
+    <div>
+      <div className="flex items-center bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-3 py-2 mb-3 gap-2">
+        <Globe className="w-3.5 h-3.5 text-[hsl(var(--text-muted))] flex-shrink-0" />
+        <input
+          className="flex-1 bg-transparent text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none"
+          placeholder="Search regions, countries, cities…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="text-[hsl(var(--text-muted))]">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
 
-        return (
-          <div key={continent.name} className="border border-[hsl(var(--border-subtle))] rounded-xl overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <button
-                onClick={() => toggleContinent(continent)}
-                className={cn(
-                  'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all',
-                  allSelected ? 'bg-[hsl(var(--accent-primary))] border-[hsl(var(--accent-primary))]'
-                    : someSelected ? 'bg-[hsl(var(--accent-primary))]/30 border-[hsl(var(--accent-primary))]/60'
-                    : 'border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--accent-primary))]/50'
-                )}
-              >
-                {(allSelected || someSelected) && <Check className="w-3 h-3 text-[hsl(var(--accent-fg))]" />}
-              </button>
-              <span className="text-base mr-1">{continent.icon}</span>
-              <span className="text-sm font-semibold text-[hsl(var(--text-primary))] flex-1">{continent.name}</span>
-              {someSelected && (
-                <span className="text-xs text-[hsl(var(--accent-primary))] font-medium mr-2">
-                  {continent.countries.filter(c => selected.has(c)).length}/{continent.countries.length}
-                </span>
-              )}
-              <button
-                onClick={() => setExpanded(isExpanded ? null : continent.name)}
-                className="p-1 rounded-lg hover:bg-[hsl(var(--nav-hover-bg))] transition-colors"
-              >
-                <ChevronDown className={cn('w-4 h-4 text-[hsl(var(--text-muted))] transition-transform', isExpanded && 'rotate-180')} />
-              </button>
-            </div>
-            {isExpanded && (
-              <div className="border-t border-[hsl(var(--border-subtle))] px-4 py-3 grid grid-cols-2 gap-1.5 bg-[hsl(var(--background))]">
-                {continent.countries.map(country => (
-                  <button
-                    key={country}
-                    onClick={() => toggle(country)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-xs',
-                      selected.has(country)
-                        ? 'bg-[hsl(var(--accent-primary))]/10 text-[hsl(var(--accent-primary))]'
-                        : 'text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--nav-hover-bg))]'
-                    )}
-                  >
-                    <div className={cn(
-                      'w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-all',
-                      selected.has(country) ? 'bg-[hsl(var(--accent-primary))] border-[hsl(var(--accent-primary))]' : 'border-[hsl(var(--border-subtle))]'
-                    )}>
-                      {selected.has(country) && <Check className="w-2.5 h-2.5 text-[hsl(var(--accent-fg))]" />}
-                    </div>
-                    {country}
-                  </button>
-                ))}
+      {loadingScopes ? (
+        <div className="flex justify-center py-6">
+          <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--text-muted))]" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(grouped)
+            .filter(([, items]) => items.length > 0)
+            .map(([type, items]) => (
+              <div key={type}>
+                <p className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2">{type}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {items.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => toggle(s.label)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border-2 transition-all',
+                        selected.has(s.label)
+                          ? 'border-[hsl(var(--accent-primary))] bg-[hsl(var(--accent-primary))]/10 text-[hsl(var(--text-primary))]'
+                          : 'border-[hsl(var(--border-subtle))] text-[hsl(var(--text-muted))] hover:border-[hsl(var(--accent-primary))]/40 hover:text-[hsl(var(--text-secondary))]'
+                      )}
+                    >
+                      {selected.has(s.label) && <Check className="w-3 h-3 text-[hsl(var(--accent-primary))]" />}
+                      <span>{s.label}</span>
+                      {s.parent_label && (
+                        <span className={cn('text-[10px] px-1 py-0.5 rounded border', typeBadge('City'))}>
+                          {s.parent_label}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
-        );
-      })}
+            ))}
+          {filtered.length === 0 && (
+            <p className="text-xs text-[hsl(var(--text-muted))] text-center py-4">
+              No scopes found{search ? ` for "${search}"` : ''}. Admin can add more in the Admin panel.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -364,13 +367,8 @@ function DeleteAccountPanel({ userId, onDeleted }: { userId: string; onDeleted: 
       return;
     }
     setStep('deleting');
-
-    // Delete all user data — RLS cascade handles DB records
-    // 1. Delete thoughts (cascades comments, votes, saves)
     await supabase.from('thoughts').delete().eq('author_id', userId);
-    // 2. Delete profile (cascades all other tables via FK cascade)
     await supabase.from('user_profiles').delete().eq('id', userId);
-    // 3. Sign out and trigger auth deletion
     await supabase.auth.signOut();
     onDeleted();
   };
@@ -464,9 +462,18 @@ export default function Settings() {
 
   const [interestsSaved, setInterestsSaved] = useState(false);
 
-  const saveInterests = () => {
+  const saveInterests = async () => {
     localStorage.setItem('lebelho_geo_interests', JSON.stringify([...geoInterests]));
     localStorage.setItem('lebelho_topic_interests', JSON.stringify([...topicInterests]));
+
+    // Persist topic interests to DB for logged-in users
+    if (authUser) {
+      await supabase.from('user_topic_interests').upsert(
+        { user_id: authUser.id, topics: [...topicInterests], updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+    }
+
     setInterestsSaved(true);
     toast.success('Interests saved');
     setTimeout(() => setInterestsSaved(false), 2000);
@@ -487,15 +494,11 @@ export default function Settings() {
     if (err) { setErrors({ username: err }); return; }
     setErrors({});
 
-    // Check uniqueness if username changed
     if (username.trim().toLowerCase() !== savedValues.username.toLowerCase()) {
       setCheckingUsername(true);
       const { data: taken } = await supabase.rpc('is_username_taken', { p_username: username.trim().toLowerCase() });
       setCheckingUsername(false);
-      if (taken) {
-        setErrors({ username: 'This username is already taken' });
-        return;
-      }
+      if (taken) { setErrors({ username: 'This username is already taken' }); return; }
     }
 
     setIsSaving(true);
@@ -510,12 +513,8 @@ export default function Settings() {
         .eq('id', authUser.id);
       if (error) {
         setIsSaving(false);
-        // Unique constraint violation
-        if (error.code === '23505') {
-          setErrors({ username: 'This username is already taken' });
-        } else {
-          toast.error('Failed to save changes');
-        }
+        if (error.code === '23505') { setErrors({ username: 'This username is already taken' }); }
+        else { toast.error('Failed to save changes'); }
         return;
       }
       await supabase.auth.updateUser({ data: { username: finalUsername, display_name: finalDisplayName } });
@@ -558,97 +557,51 @@ export default function Settings() {
         </div>
 
         {/* ── Account ── */}
-        <SectionCard
-          icon={<UserIcon className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="Account"
-          subtitle="Your pseudonymous identity"
-        >
+        <SectionCard icon={<UserIcon className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Account" subtitle="Your pseudonymous identity">
           <div className="space-y-5">
-            {/* Username */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">Username</label>
                 <CharCount current={username.length} max={USERNAME_MAX} />
               </div>
-              <div className={cn(
-                'flex items-center bg-[hsl(var(--input-bg))] border rounded-xl overflow-hidden transition-colors',
-                errors.username ? 'border-red-500/60' : 'border-[hsl(var(--border-subtle))] focus-within:border-[hsl(var(--accent-primary))]/50'
-              )}>
+              <div className={cn('flex items-center bg-[hsl(var(--input-bg))] border rounded-xl overflow-hidden transition-colors', errors.username ? 'border-red-500/60' : 'border-[hsl(var(--border-subtle))] focus-within:border-[hsl(var(--accent-primary))]/50')}>
                 <span className="pl-4 text-[hsl(var(--accent-primary))] font-bold text-sm select-none">@</span>
                 <input
                   className="flex-1 bg-transparent px-2 py-3 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none text-sm"
-                  value={username}
-                  placeholder="YourHandle"
-                  onChange={e => {
-                    const val = e.target.value.replace(/\s/g, '').slice(0, USERNAME_MAX);
-                    setUsername(val);
-                    if (errors.username) setErrors(p => ({ ...p, username: undefined }));
-                  }}
-                  spellCheck={false}
-                  autoComplete="off"
+                  value={username} placeholder="YourHandle"
+                  onChange={e => { const val = e.target.value.replace(/\s/g, '').slice(0, USERNAME_MAX); setUsername(val); if (errors.username) setErrors(p => ({ ...p, username: undefined })); }}
+                  spellCheck={false} autoComplete="off"
                 />
                 {checkingUsername && <RefreshCw className="w-3.5 h-3.5 animate-spin text-[hsl(var(--text-muted))] mr-3" />}
               </div>
               {errors.username ? (
-                <p className="flex items-center gap-1 text-xs text-red-400 mt-1.5">
-                  <AlertCircle className="w-3 h-3 flex-shrink-0" />{errors.username}
-                </p>
+                <p className="flex items-center gap-1 text-xs text-red-400 mt-1.5"><AlertCircle className="w-3 h-3 flex-shrink-0" />{errors.username}</p>
               ) : (
-                <p className="text-xs text-[hsl(var(--text-muted))] mt-1.5">Your unique public identity on LeBeHo. Usernames are first-come, first-served.</p>
+                <p className="text-xs text-[hsl(var(--text-muted))] mt-1.5">Your unique public identity on LeBeHo.</p>
               )}
             </div>
 
-            {/* Display Name */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-                  Display Name <span className="font-normal normal-case tracking-normal text-[hsl(var(--text-muted))]/60">optional</span>
-                </label>
+                <label className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">Display Name <span className="font-normal normal-case tracking-normal text-[hsl(var(--text-muted))]/60">optional</span></label>
                 <CharCount current={displayName.length} max={DISPLAY_NAME_MAX} />
               </div>
-              <input
-                className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors text-sm"
-                placeholder="Doesn't have to be your real name"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value.slice(0, DISPLAY_NAME_MAX))}
-              />
+              <input className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors text-sm" placeholder="Doesn't have to be your real name" value={displayName} onChange={e => setDisplayName(e.target.value.slice(0, DISPLAY_NAME_MAX))} />
             </div>
 
-            {/* Bio */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-                  Bio <span className="font-normal normal-case tracking-normal text-[hsl(var(--text-muted))]/60">optional</span>
-                </label>
+                <label className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">Bio <span className="font-normal normal-case tracking-normal text-[hsl(var(--text-muted))]/60">optional</span></label>
                 <CharCount current={bio.length} max={BIO_MAX} />
               </div>
-              <textarea
-                className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors text-sm resize-none leading-relaxed"
-                placeholder="A sentence about what you think, question, or care about."
-                value={bio}
-                onChange={e => setBio(e.target.value.slice(0, BIO_MAX))}
-                rows={3}
-              />
+              <textarea className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors text-sm resize-none leading-relaxed" placeholder="A sentence about what you think, question, or care about." value={bio} onChange={e => setBio(e.target.value.slice(0, BIO_MAX))} rows={3} />
             </div>
 
-            {/* Save / Discard */}
-            <div className={cn(
-              'flex items-center gap-2 overflow-hidden transition-all duration-200',
-              isDirty ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
-            )}>
-              <button
-                onClick={handleSave}
-                disabled={isSaving || checkingUsername}
-                className="flex items-center gap-1.5 bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] disabled:opacity-60 text-[hsl(var(--accent-fg))] font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors"
-              >
-                <Save className="w-3.5 h-3.5" />
-                {isSaving ? 'Saving…' : 'Save changes'}
+            <div className={cn('flex items-center gap-2 overflow-hidden transition-all duration-200', isDirty ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0 pointer-events-none')}>
+              <button onClick={handleSave} disabled={isSaving || checkingUsername} className="flex items-center gap-1.5 bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] disabled:opacity-60 text-[hsl(var(--accent-fg))] font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors">
+                <Save className="w-3.5 h-3.5" />{isSaving ? 'Saving…' : 'Save changes'}
               </button>
-              <button
-                onClick={handleDiscard}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--surface-hover))] text-sm px-3 py-2.5 rounded-lg transition-colors"
-              >
+              <button onClick={handleDiscard} disabled={isSaving} className="flex items-center gap-1.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--surface-hover))] text-sm px-3 py-2.5 rounded-lg transition-colors">
                 <X className="w-3.5 h-3.5" />Discard
               </button>
             </div>
@@ -656,87 +609,50 @@ export default function Settings() {
         </SectionCard>
 
         {/* ── Inbox Background ── */}
-        <SectionCard
-          icon={<ImageIcon className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="Inbox Background"
-          subtitle="Optional personal touch for your inbox"
-        >
+        <SectionCard icon={<ImageIcon className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Inbox Background" subtitle="Optional personal touch for your inbox">
           <InboxBackgroundPanel />
         </SectionCard>
 
         {/* ── Geo Interests ── */}
-        <SectionCard
-          icon={<Globe className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="Geographic Interests"
-          subtitle="See posts from regions you care about"
-        >
-          <div className="mb-4 text-xs text-[hsl(var(--text-muted))] leading-relaxed">
-            Select continents or individual countries.
+        <SectionCard icon={<Globe className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Geographic Interests" subtitle="Follow regions that appear in your scope selections">
+          <div className="mb-3 text-xs text-[hsl(var(--text-muted))] leading-relaxed">
+            Select regions curated by LeBeHo admins. Your selected regions will appear first in scope lists.
             {geoInterests.size > 0 && (
               <span className="ml-1.5 font-semibold text-[hsl(var(--accent-primary))]">
-                {geoInterests.size} region{geoInterests.size !== 1 ? 's' : ''} selected.
+                {geoInterests.size} selected.
               </span>
             )}
           </div>
           <GeoInterestsPanel selected={geoInterests} onChange={setGeoInterests} />
           <button
             onClick={saveInterests}
-            className={cn(
-              'mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all',
-              interestsSaved
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] text-[hsl(var(--accent-fg))]'
-            )}
+            className={cn('mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all', interestsSaved ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] text-[hsl(var(--accent-fg))]')}
           >
             {interestsSaved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save Interests</>}
           </button>
         </SectionCard>
 
         {/* ── Topic Interests ── */}
-        <SectionCard
-          icon={<Hash className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="Topic Interests"
-          subtitle="Customise which topics fill your feed"
-        >
+        <SectionCard icon={<Hash className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Topic Interests" subtitle="Customise which topics fill your feed">
           <TopicInterestsPanel selected={topicInterests} onChange={setTopicInterests} />
           <button
             onClick={saveInterests}
-            className={cn(
-              'mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all',
-              interestsSaved
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] text-[hsl(var(--accent-fg))]'
-            )}
+            className={cn('mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all', interestsSaved ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[hsl(var(--accent-primary))] hover:bg-[hsl(var(--accent-hover))] text-[hsl(var(--accent-fg))]')}
           >
             {interestsSaved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save Interests</>}
           </button>
         </SectionCard>
 
         {/* ── Appearance ── */}
-        <SectionCard
-          icon={<Palette className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="Appearance"
-          subtitle="How LeBeHo looks to you"
-        >
+        <SectionCard icon={<Palette className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Appearance" subtitle="How LeBeHo looks to you">
           <div className="grid grid-cols-2 gap-3">
             {THEME_OPTIONS.map(opt => {
               const Icon = opt.icon;
               const isActive = theme === opt.id;
               return (
-                <button
-                  key={opt.id}
-                  onClick={() => setTheme(opt.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200',
-                    isActive
-                      ? 'border-[hsl(var(--accent-primary))] bg-[hsl(var(--accent-primary))]/6'
-                      : 'border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--accent-primary))]/40 hover:bg-[hsl(var(--surface-hover))]'
-                  )}
-                >
-                  <div
-                    className="w-full h-14 rounded-xl overflow-hidden flex flex-col gap-1.5 p-2.5 border"
-                    style={{ backgroundColor: opt.previewBg, borderColor: opt.previewLine1 }}
-                  >
+                <button key={opt.id} onClick={() => setTheme(opt.id)}
+                  className={cn('flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200', isActive ? 'border-[hsl(var(--accent-primary))] bg-[hsl(var(--accent-primary))]/6' : 'border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--accent-primary))]/40 hover:bg-[hsl(var(--surface-hover))]')}>
+                  <div className="w-full h-14 rounded-xl overflow-hidden flex flex-col gap-1.5 p-2.5 border" style={{ backgroundColor: opt.previewBg, borderColor: opt.previewLine1 }}>
                     <div className="flex items-center gap-1.5">
                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: opt.previewAccent + '60' }} />
                       <div className="h-1.5 rounded-full" style={{ backgroundColor: opt.previewAccent + '80', width: '55%' }} />
@@ -746,12 +662,8 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Icon className="w-4 h-4" style={{ color: isActive ? 'hsl(var(--accent-primary))' : 'hsl(var(--text-muted))' }} />
-                    <span className={cn('text-sm font-semibold', isActive ? 'text-[hsl(var(--accent-primary))]' : 'text-[hsl(var(--text-primary))]')}>
-                      {opt.label}
-                    </span>
-                    {isActive && (
-                      <span className="text-[10px] font-bold text-[hsl(var(--accent-primary))] bg-[hsl(var(--accent-primary))]/10 px-1.5 py-0.5 rounded-full">ON</span>
-                    )}
+                    <span className={cn('text-sm font-semibold', isActive ? 'text-[hsl(var(--accent-primary))]' : 'text-[hsl(var(--text-primary))]')}>{opt.label}</span>
+                    {isActive && <span className="text-[10px] font-bold text-[hsl(var(--accent-primary))] bg-[hsl(var(--accent-primary))]/10 px-1.5 py-0.5 rounded-full">ON</span>}
                   </div>
                 </button>
               );
@@ -761,25 +673,15 @@ export default function Settings() {
 
         {/* ── Export Content ── */}
         {authUser && (
-          <SectionCard
-            icon={<Download className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-            title="Export Content"
-            subtitle="Download a copy of all your data"
-          >
+          <SectionCard icon={<Download className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="Export Content" subtitle="Download a copy of all your data">
             <ExportPanel userId={authUser.id} />
           </SectionCard>
         )}
 
         {/* ── About ── */}
-        <SectionCard
-          icon={<Info className="w-4 h-4 text-[hsl(var(--accent-primary))]" />}
-          title="About LeBeHo"
-        >
+        <SectionCard icon={<Info className="w-4 h-4 text-[hsl(var(--accent-primary))]" />} title="About LeBeHo">
           <div className="space-y-3 text-sm">
-            {[
-              { label: 'Version', value: '1.0.0' },
-              { label: 'Identity', value: 'Pseudonymous' },
-            ].map(row => (
+            {[{ label: 'Version', value: '1.0.0' }, { label: 'Identity', value: 'Pseudonymous' }].map(row => (
               <div key={row.label} className="flex justify-between items-center py-1 border-b border-[hsl(var(--border-subtle))] last:border-0">
                 <span className="text-[hsl(var(--text-muted))]">{row.label}</span>
                 <span className="text-[hsl(var(--text-secondary))] font-medium">{row.value}</span>
@@ -789,21 +691,9 @@ export default function Settings() {
               <span className="text-[hsl(var(--text-muted))]">Principle</span>
               <span className="font-serif italic text-[hsl(var(--accent-primary))]">Let's Be Honest.</span>
             </div>
-            {/* Legal links */}
             <div className="flex flex-wrap gap-2 pt-2">
-              {[
-                { label: 'Guidelines', path: '/guidelines' },
-                { label: 'Terms',      path: '/terms' },
-                { label: 'Privacy',    path: '/privacy' },
-                { label: 'About',      path: '/about' },
-              ].map(({ label, path }) => (
-                <button
-                  key={path}
-                  onClick={() => navigate(path)}
-                  className="text-xs text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent-primary))] underline underline-offset-2 transition-colors"
-                >
-                  {label}
-                </button>
+              {[{ label: 'Guidelines', path: '/guidelines' }, { label: 'Terms', path: '/terms' }, { label: 'Privacy', path: '/privacy' }, { label: 'About', path: '/about' }].map(({ label, path }) => (
+                <button key={path} onClick={() => navigate(path)} className="text-xs text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent-primary))] underline underline-offset-2 transition-colors">{label}</button>
               ))}
             </div>
           </div>
@@ -811,11 +701,7 @@ export default function Settings() {
 
         {/* ── Danger zone ── */}
         {authUser && (
-          <SectionCard
-            icon={<AlertTriangle className="w-4 h-4 text-red-400" />}
-            title="Danger Zone"
-            subtitle="Irreversible actions"
-          >
+          <SectionCard icon={<AlertTriangle className="w-4 h-4 text-red-400" />} title="Danger Zone" subtitle="Irreversible actions">
             <DeleteAccountPanel userId={authUser.id} onDeleted={handleAccountDeleted} />
           </SectionCard>
         )}

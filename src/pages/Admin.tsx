@@ -8,7 +8,7 @@ import { cn, formatRelativeTime } from '@/lib/utils';
 import {
   Shield, Users, Flag, CheckCircle, Trash2, RefreshCw,
   ChevronLeft, BarChart3, Eye, EyeOff, Ban, UserCheck,
-  MessageSquare, AlertTriangle, Hash
+  MessageSquare, AlertTriangle, Hash, MapPin, Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,7 +55,151 @@ interface Stats {
   pendingReports: number;
 }
 
-type Tab = 'overview' | 'users' | 'reports' | 'topics';
+type Tab = 'overview' | 'users' | 'reports' | 'topics' | 'scopes';
+
+const SCOPE_TYPES = ['Global', 'Country', 'City'] as const;
+type ScopeType = typeof SCOPE_TYPES[number];
+
+interface PlatformScope {
+  id: string;
+  label: string;
+  scope_type: ScopeType;
+  parent_label: string | null;
+  sort_order: number;
+}
+
+// ─── Scopes tab ─────────────────────────────────────────────────────────────
+function ScopesTab() {
+  const [scopes, setScopes] = useState<PlatformScope[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newLabel, setNewLabel] = useState('');
+  const [newType, setNewType] = useState<ScopeType>('Country');
+  const [newParent, setNewParent] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<ScopeType | 'All'>('All');
+
+  const fetchScopes = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('platform_scopes').select('*').order('sort_order', { ascending: true }).order('label', { ascending: true });
+    setScopes((data ?? []) as PlatformScope[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchScopes(); }, []);
+
+  const addScope = async () => {
+    const label = newLabel.trim();
+    if (!label) return;
+    setAdding(true);
+    const maxOrder = scopes.reduce((m, s) => Math.max(m, s.sort_order), 0);
+    const { error } = await supabase.from('platform_scopes').insert({
+      label,
+      scope_type: newType,
+      parent_label: newParent.trim() || null,
+      sort_order: maxOrder + 1,
+    });
+    if (error) { toast.error(error.message.includes('unique') ? 'Scope already exists' : 'Failed to add scope'); }
+    else { toast.success(`"${label}" added`); setNewLabel(''); setNewParent(''); }
+    setAdding(false);
+    fetchScopes();
+  };
+
+  const deleteScope = async (id: string, label: string) => {
+    setDeleting(id);
+    await supabase.from('platform_scopes').delete().eq('id', id);
+    toast.success(`"${label}" removed`);
+    setDeleting(null);
+    fetchScopes();
+  };
+
+  const filtered = filterType === 'All' ? scopes : scopes.filter(s => s.scope_type === filterType);
+  const typeIcon = (t: ScopeType) => t === 'Global' ? Globe : t === 'Country' ? MapPin : MapPin;
+  const typeColor = (t: ScopeType) => t === 'Global' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : t === 'Country' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+
+  return (
+    <div>
+      {/* Add new scope form */}
+      <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border-subtle))] rounded-xl p-4 mb-4">
+        <p className="text-xs font-semibold text-[hsl(var(--text-primary))] mb-3">Add New Scope</p>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <input
+              className="flex-1 bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-3 py-2.5 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50"
+              placeholder="Scope label (e.g. Lagos, Nigeria, Europe)"
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addScope()}
+            />
+            <select
+              className="bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-3 py-2.5 text-sm text-[hsl(var(--text-primary))] outline-none focus:border-[hsl(var(--accent-primary))]/50"
+              value={newType}
+              onChange={e => setNewType(e.target.value as ScopeType)}
+            >
+              {SCOPE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {newType === 'City' && (
+            <input
+              className="bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-3 py-2.5 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50"
+              placeholder="Parent country (e.g. Nigeria)"
+              value={newParent}
+              onChange={e => setNewParent(e.target.value)}
+            />
+          )}
+          <button
+            onClick={addScope}
+            disabled={adding || !newLabel.trim()}
+            className="self-start px-4 py-2 rounded-xl bg-[hsl(var(--accent-primary))] text-[hsl(var(--accent-fg))] text-sm font-semibold disabled:opacity-50 hover:bg-[hsl(var(--accent-hover))] transition-colors"
+          >
+            {adding ? 'Adding…' : 'Add Scope'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter pills */}
+      <div className="flex items-center gap-1.5 mb-3">
+        {(['All', ...SCOPE_TYPES] as const).map(t => (
+          <button key={t} onClick={() => setFilterType(t)}
+            className={cn('px-3 py-1 rounded-full text-xs font-medium border transition-colors', filterType === t ? 'bg-[hsl(var(--accent-primary))]/15 border-[hsl(var(--accent-primary))]/30 text-[hsl(var(--accent-primary))]' : 'border-[hsl(var(--border-subtle))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))]')}>
+            {t}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-[hsl(var(--text-muted))]">{filtered.length} scopes</span>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8"><RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--text-muted))]" /></div>
+      ) : (
+        <div className="space-y-1.5">
+          {filtered.map(s => {
+            const TypeIcon = typeIcon(s.scope_type);
+            return (
+              <div key={s.id} className="flex items-center justify-between bg-[hsl(var(--surface))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <span className={cn('inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium', typeColor(s.scope_type))}>
+                    <TypeIcon className="w-2.5 h-2.5" />{s.scope_type}
+                  </span>
+                  <div>
+                    <span className="text-sm text-[hsl(var(--text-primary))]">{s.label}</span>
+                    {s.parent_label && <span className="text-xs text-[hsl(var(--text-muted))] ml-2">· {s.parent_label}</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteScope(s.id, s.label)}
+                  disabled={deleting === s.id}
+                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  {deleting === s.id ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number | string; color: string }) {
   return (
@@ -456,6 +600,7 @@ export default function Admin() {
     { id: 'users' as Tab, icon: Users, label: 'Users' },
     { id: 'reports' as Tab, icon: Flag, label: `Reports${stats.pendingReports > 0 ? ` (${stats.pendingReports})` : ''}` },
     { id: 'topics' as Tab, icon: Hash, label: 'Topics' },
+    { id: 'scopes' as Tab, icon: MapPin, label: 'Scopes' },
   ];
 
   return (
@@ -504,8 +649,11 @@ export default function Admin() {
                 <button onClick={() => setTab('reports')} className="flex items-center gap-2 p-3 bg-[hsl(var(--background))] border border-[hsl(var(--border-subtle))] rounded-xl text-sm text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--accent-primary))]/30 transition-colors text-left">
                   <Flag className="w-4 h-4 text-[hsl(var(--text-muted))]" /> Review reports
                 </button>
-                <button onClick={() => setTab('topics')} className="flex items-center gap-2 p-3 bg-[hsl(var(--background))] border border-[hsl(var(--border-subtle))] rounded-xl text-sm text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--accent-primary))]/30 transition-colors text-left col-span-2">
-                  <Hash className="w-4 h-4 text-[hsl(var(--text-muted))]" /> Manage topic interests
+                <button onClick={() => setTab('topics')} className="flex items-center gap-2 p-3 bg-[hsl(var(--background))] border border-[hsl(var(--border-subtle))] rounded-xl text-sm text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--accent-primary))]/30 transition-colors text-left">
+                  <Hash className="w-4 h-4 text-[hsl(var(--text-muted))]" /> Manage topics
+                </button>
+                <button onClick={() => setTab('scopes')} className="flex items-center gap-2 p-3 bg-[hsl(var(--background))] border border-[hsl(var(--border-subtle))] rounded-xl text-sm text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--accent-primary))]/30 transition-colors text-left">
+                  <MapPin className="w-4 h-4 text-[hsl(var(--text-muted))]" /> Manage scopes
                 </button>
               </div>
             </div>
@@ -515,6 +663,7 @@ export default function Admin() {
         {tab === 'users' && <UsersTab />}
         {tab === 'reports' && <ReportsTab />}
         {tab === 'topics' && <TopicsTab />}
+        {tab === 'scopes' && <ScopesTab />}
       </div>
     </AppShell>
   );

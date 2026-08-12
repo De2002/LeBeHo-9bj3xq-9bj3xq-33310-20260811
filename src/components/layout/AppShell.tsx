@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu, LogOut, LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/components/features/ThemeProvider';
+import lebehoIconDark from '@/assets/lebeho-icon-dark.png';
+import lebehoIconLight from '@/assets/lebeho-icon-light.png';
 
 interface AppShellProps {
   children: ReactNode;
@@ -13,6 +16,7 @@ export function AppShell({ children, hideDefaultMobileHeader }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
 
   const handleLogout = async () => {
     await logout();
@@ -67,9 +71,16 @@ export function AppShell({ children, hideDefaultMobileHeader }: AppShellProps) {
             </button>
 
             {/* Brand — centered */}
-            <button onClick={() => navigate('/')} className="flex items-baseline gap-0.5" aria-label="Go to LeBeHo home">
-              <span className="font-serif text-xl font-bold text-[hsl(var(--accent-primary))]">Le</span>
-              <span className="font-serif text-xl font-bold text-[hsl(var(--text-primary))]">BeHo</span>
+            <button onClick={() => navigate('/')} className="flex items-center gap-1.5" aria-label="Go to LeBeHo home">
+              <img
+                src={theme === 'dark' ? lebehoIconLight : lebehoIconDark}
+                alt=""
+                className={`w-6 h-6 object-contain flex-shrink-0${theme === 'dark' ? ' invert' : ''}`}
+              />
+              <div className="flex items-baseline gap-0.5">
+                <span className="font-serif text-xl font-bold text-[hsl(var(--accent-primary))]">Le</span>
+                <span className="font-serif text-xl font-bold text-[hsl(var(--text-primary))]">BeHo</span>
+              </div>
             </button>
 
             {/* Sign out / Sign up — far right */}
