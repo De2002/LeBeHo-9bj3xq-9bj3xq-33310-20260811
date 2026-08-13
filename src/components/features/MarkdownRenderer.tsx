@@ -26,6 +26,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(url) => url.startsWith('data:image/') ? url : url}
         components={{
           img: ({ node: _node, ...props }) => (
             <img

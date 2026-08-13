@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import type { ClipboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { CATEGORIES, Category } from '@/types';
@@ -437,7 +438,62 @@ export default function Compose() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(draftId);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const isPublishing = useRef(false);
+
+  const insertAtCursor = useCallback((value: string) => {
+    const textarea = bodyRef.current;
+    if (!textarea) {
+      setBody(current => current + value);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    setBody(current => `${current.slice(0, start)}${value}${current.slice(end)}`);
+    requestAnimationFrame(() => {
+      const cursor = start + value.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  }, []);
+
+  const handleBodyPaste = useCallback(async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItem = Array.from(event.clipboardData.items).find(item => item.type.startsWith('image/'));
+    const imageFile = imageItem?.getAsFile();
+    if (!imageFile) return;
+
+    event.preventDefault();
+    const mediaLabel = imageFile.type === 'image/gif' ? 'GIF' : 'Image';
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const extension = imageFile.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+        const path = `${user.id}/thought-images/${generateId()}.${extension}`;
+        const { error } = await supabase.storage.from('avatars').upload(path, imageFile, {
+          contentType: imageFile.type,
+          upsert: false,
+        });
+        if (!error) {
+          const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+          insertAtCursor(`![${mediaLabel}](${data.publicUrl})`);
+          toast.success(`${mediaLabel} uploaded and added to your thought`);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to an inline data URL so the paste still works without storage setup.
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : null;
+      if (!dataUrl) return;
+      insertAtCursor(`![${mediaLabel}](${dataUrl})`);
+      toast.success(`${mediaLabel} added to your thought`);
+    };
+    reader.onerror = () => toast.error(`Could not read the pasted ${mediaLabel.toLowerCase()}`);
+    reader.readAsDataURL(imageFile);
+  }, [insertAtCursor]);
 
   useEffect(() => {
     if (!draftId || !authUser) return;
@@ -537,7 +593,7 @@ export default function Compose() {
   </div>
   ) : (
               <>
-                <textarea className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors resize-none text-sm leading-relaxed min-h-[160px] font-mono"
+                <textarea ref={bodyRef} onPaste={handleBodyPaste} className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors resize-none text-sm leading-relaxed min-h-[160px] font-mono"
   placeholder={"Why do you think this? Share your honest reasoning...\n\nSupports **bold**, *italic*, # headings, > quotes, - lists, and ![Alt text](https://example.com/image.gif)"} value={body} onChange={e => setBody(e.target.value)} rows={8} />
   <p className="text-[10px] text-[hsl(var(--text-muted))]/70 mt-1">Markdown: **bold** · *italic* · # Heading · {'>'} Quote · - List · ![Alt text](image-or-gif-url)</p>
               </>
