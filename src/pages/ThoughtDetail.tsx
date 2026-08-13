@@ -16,24 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-
-// ─── Markdown renderer ─────────────────────────────────────────────────────
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.*?)__/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/_(.*?)_/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
-    .replace(/^### (.*$)/gm, '<h3 class="font-serif text-lg font-bold text-[hsl(var(--text-primary))] mt-5 mb-2">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 class="font-serif text-xl font-bold text-[hsl(var(--text-primary))] mt-6 mb-2">$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1 class="font-serif text-2xl font-bold text-[hsl(var(--text-primary))] mt-6 mb-3">$1</h1>')
-    .replace(/^> (.*$)/gm, '<blockquote class="border-l-2 border-[hsl(var(--accent-primary))]/40 pl-4 italic text-[hsl(var(--text-muted))] my-3">$1</blockquote>')
-    .replace(/^[-*] (.*$)/gm, '<li class="ml-4 list-disc text-[hsl(var(--text-secondary))]">$1</li>')
-    .replace(/^\d+\. (.*$)/gm, '<li class="ml-4 list-decimal text-[hsl(var(--text-secondary))]">$1</li>')
-    .replace(/\n\n/g, '</p><p class="mb-4 leading-relaxed text-[hsl(var(--text-secondary))]">')
-    .replace(/\n/g, '<br/>');
-}
+import { MarkdownRenderer } from '@/components/features/MarkdownRenderer';
 
 // ─── Detail-page header ────────────────────────────────────────────────────
 function DetailHeader({ onMenuOpen, canOpenMenu }: { onMenuOpen: () => void; canOpenMenu: boolean }) {
@@ -905,11 +888,11 @@ export default function ThoughtDetail() {
                 </h1>
               </div>
 
-              {/* Body */}
-              <div
-                className="px-4 lg:px-0 pt-2 text-base text-[hsl(var(--text-secondary))] leading-relaxed mb-8"
-                dangerouslySetInnerHTML={{ __html: `<p class="mb-4 leading-relaxed text-[hsl(var(--text-secondary))]">${renderMarkdown(thought.body)}</p>` }}
-              />
+      {/* Body */}
+      <MarkdownRenderer
+        content={thought.body}
+        className="px-4 pt-2 text-base text-[hsl(var(--text-secondary))] leading-relaxed mb-8 lg:px-0"
+      />
 
               {/* Agree / Disagree */}
               <div className={cn('relative mx-4 lg:mx-0 mb-4', focusMode && 'hidden')}>
