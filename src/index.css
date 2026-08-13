@@ -162,6 +162,61 @@ html.light {
     font-family: 'DM Serif Display', Georgia, serif;
   }
 
+  .markdown-content > :first-child {
+    margin-top: 0;
+  }
+
+  .markdown-content p {
+    margin-bottom: 1rem;
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    color: hsl(var(--text-primary));
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .markdown-content ul,
+  .markdown-content ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .markdown-content ul {
+    list-style: disc;
+  }
+
+  .markdown-content ol {
+    list-style: decimal;
+  }
+
+  .markdown-content blockquote {
+    border-left: 2px solid hsl(var(--accent-primary) / 0.4);
+    color: hsl(var(--text-muted));
+    font-style: italic;
+    margin: 1rem 0;
+    padding-left: 1rem;
+  }
+
+  .markdown-content pre {
+    background: hsl(var(--surface-hover));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    padding: 1rem;
+  }
+
+  .markdown-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+
   /* Hide scrollbar for horizontal overflow */
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
