@@ -11,6 +11,7 @@ import {
   CloudOff, Cloud, Search, Navigation
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { MarkdownRenderer } from '@/components/features/MarkdownRenderer';
 
 interface GeoRegion { continent: string; countries: GeoCountry[]; }
 interface GeoCountry { name: string; code: string; states?: string[]; cities?: string[]; }
@@ -415,21 +416,7 @@ function ImageUpload({ value, onChange }: { value: string | null; onChange: (url
   );
 }
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.*?)__/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/_(.*?)_/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
-    .replace(/^### (.*$)/gm, '<h3 class="text-base font-bold mt-4 mb-1">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-5 mb-2">$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-5 mb-2">$1</h1>')
-    .replace(/^> (.*$)/gm, '<blockquote class="border-l-2 border-[hsl(var(--accent-primary))]/40 pl-3 italic text-[hsl(var(--text-muted))] my-2">$1</blockquote>')
-    .replace(/^[-*] (.*$)/gm, '<li class="ml-4 list-disc">$1</li>')
-    .replace(/\n\n/g, '</p><p class="mb-3">')
-    .replace(/\n/g, '<br/>');
-}
+
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -544,14 +531,15 @@ export default function Compose() {
                 <button onClick={() => setPreviewMode(true)} className={cn('flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors', previewMode ? 'bg-[hsl(var(--accent-primary))] text-[hsl(var(--accent-fg))]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))]')}><Eye className="w-3 h-3" />Preview</button>
               </div>
             </div>
-            {previewMode ? (
-              <div className="min-h-[160px] bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-sm text-[hsl(var(--text-secondary))] leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: `<p class="mb-3">${renderMarkdown(body || 'Nothing to preview yet…')}</p>` }} />
-            ) : (
+  {previewMode ? (
+  <div className="min-h-[160px] bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-sm text-[hsl(var(--text-secondary))] leading-relaxed">
+  {body ? <MarkdownRenderer content={body} /> : <p className="text-[hsl(var(--text-muted))]">Nothing to preview yet…</p>}
+  </div>
+  ) : (
               <>
                 <textarea className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors resize-none text-sm leading-relaxed min-h-[160px] font-mono"
-                  placeholder={"Why do you think this? Share your honest reasoning...\n\nSupports **bold**, *italic*, # headings, > quotes, - lists"} value={body} onChange={e => setBody(e.target.value)} rows={8} />
-                <p className="text-[10px] text-[hsl(var(--text-muted))]/70 mt-1">Markdown: **bold** · *italic* · # Heading · {'>'} Quote · - List item</p>
+  placeholder={"Why do you think this? Share your honest reasoning...\n\nSupports **bold**, *italic*, # headings, > quotes, - lists, and ![Alt text](https://example.com/image.gif)"} value={body} onChange={e => setBody(e.target.value)} rows={8} />
+  <p className="text-[10px] text-[hsl(var(--text-muted))]/70 mt-1">Markdown: **bold** · *italic* · # Heading · {'>'} Quote · - List · ![Alt text](image-or-gif-url)</p>
               </>
             )}
           </div>
