@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { TouchEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { SEOHead } from '@/components/features/SEOHead';
@@ -7,7 +8,8 @@ import { Thought } from '@/types';
 import { formatRelativeTime, getCategoryColor, cn } from '@/lib/utils';
 import {
   Star, ThumbsUp, ThumbsDown, MessageSquare, Share2, UserPlus, UserCheck,
-  X, ChevronUp, Send, MoreHorizontal, ChevronLeft, Menu, RefreshCw,
+  X, ChevronUp, Send, MoreHorizontal, ChevronLeft, ChevronRight, Menu, RefreshCw,
+  Maximize2, Minimize2,
   CornerDownRight, Shield, Flag, ChevronDown, ArrowUpDown
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -556,7 +558,10 @@ export default function ThoughtDetail() {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
+  const [focusMode, setFocusMode] = useState(false);
+  const [inboxIds, setInboxIds] = useState<string[]>([]);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Load thought + existing vote
   useEffect(() => {
@@ -599,6 +604,16 @@ export default function ThoughtDetail() {
         setAgreeCount(t.agreeCount);
         setDisagreeCount(t.disagreeCount);
 
+        if (user) {
+          const [{ data: savedRow }, { data: follows }] = await Promise.all([
+            supabase.from('saved_thoughts').select('thought_id').eq('user_id', user.id).eq('thought_id', id).maybeSingle(),
+            supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
+          ]);
+          setThought(current => current ? { ...current, isSaved: Boolean(savedRow) } : current);
+          const followedAuthorIds = (follows ?? []).map(row => row.following_id as string);
+          setIsFollowing(followedAuthorIds.includes(data.author_id));
+        }
+
         // Check following
         if (user && data.author_id !== user.id) {
           const { data: followRow } = await supabase.from('user_follows').select('id').eq('follower_id', user.id).eq('following_id', data.author_id).maybeSingle();
@@ -616,6 +631,19 @@ export default function ThoughtDetail() {
     };
     load();
   }, [id, user]);
+
+  // Load the user's inbox order for mobile reading navigation.
+  useEffect(() => {
+    if (!user) { setInboxIds([]); return; }
+    const loadInboxIds = async () => {
+      const { data: follows } = await supabase.from('user_follows').select('following_id').eq('follower_id', user.id);
+      const followedIds = (follows ?? []).map(row => row.following_id as string).filter(Boolean);
+      if (followedIds.length === 0) { setInboxIds([]); return; }
+      const { data } = await supabase.from('thoughts').select('id').eq('is_draft', false).in('author_id', followedIds).order('published_at', { ascending: false }).limit(100);
+      setInboxIds((data ?? []).map(row => row.id as string));
+    };
+    loadInboxIds();
+  }, [user]);
 
   // Load comments
   const fetchComments = useCallback(async () => {
@@ -635,6 +663,36 @@ export default function ThoughtDetail() {
 
   useEffect(() => { fetchComments(); }, [fetchComments]);
 
+  const navigateInbox = useCallback((direction: 'next' | 'previous') => {
+    if (!id || inboxIds.length === 0) return;
+    const currentIndex = inboxIds.indexOf(id);
+    if (currentIndex < 0) return;
+    const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex >= 0 && nextIndex < inboxIds.length) navigate(`/thought/${inboxIds[nextIndex]}`);
+  }, [id, inboxIds, navigate]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && focusMode) setFocusMode(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [focusMode]);
+
+  // Horizontal swipe navigates through Inbox points on mobile.
+  const handleTouchStart = (event: TouchEvent) => {
+    touchStartRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  };
+  const handleTouchEnd = (event: TouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || window.innerWidth >= 1024) return;
+    const dx = event.changedTouches[0].clientX - start.x;
+    const dy = event.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+    navigateInbox(dx < 0 ? 'next' : 'previous');
+  };
+
   // Sheet backdrop close
   useEffect(() => {
     if (!commentsOpen) return;
@@ -651,6 +709,7 @@ export default function ThoughtDetail() {
     const next = !thought.isSaved;
     setThought(t => t ? { ...t, isSaved: next } : t);
     toast.success(next ? 'Saved' : 'Removed from saved');
+    window.dispatchEvent(new CustomEvent('lebelho:saved-changed', { detail: { id: thought.id, isSaved: next } }));
     if (user) {
       if (next) {
         await supabase.from('saved_thoughts').upsert({ user_id: user.id, thought_id: thought.id });
@@ -784,11 +843,28 @@ export default function ThoughtDetail() {
         </div>
       )}
 
-      <div className="flex flex-col h-full overflow-hidden lg:overflow-visible">
-        <DetailHeader onMenuOpen={() => setSidebarOpen(true)} canOpenMenu={Boolean(user)} />
-        <ForYouStrip />
+      <div
+        className={cn('flex flex-col h-full overflow-hidden lg:overflow-visible', focusMode && 'bg-[hsl(var(--background))]')}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className={cn(!focusMode && 'contents')}>
+          {!focusMode && <DetailHeader onMenuOpen={() => setSidebarOpen(true)} canOpenMenu={Boolean(user)} />}
+          {!focusMode && <ForYouStrip />}
+        </div>
 
         <div className="flex-1 overflow-y-auto lg:overflow-visible">
+          <div className="flex items-center justify-end max-w-4xl mx-auto px-4 pt-3 lg:px-6">
+            <button
+              onClick={() => setFocusMode(value => !value)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--surface))] px-3 py-2 text-xs font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--accent-primary))] transition-colors"
+              aria-pressed={focusMode}
+              aria-label={focusMode ? 'Exit Focus reading mode' : 'Enter Focus reading mode'}
+            >
+              {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {focusMode ? 'Exit Focus' : 'Focus'}
+            </button>
+          </div>
           <div className="max-w-4xl mx-auto lg:grid lg:grid-cols-[1fr_360px] lg:gap-8 lg:px-6 lg:py-8">
 
             {/* ── Main column ── */}
@@ -800,7 +876,7 @@ export default function ThoughtDetail() {
               )}
 
               {/* Author + title */}
-              <div className="px-4 lg:px-0 pt-6 pb-4">
+              <div className={cn('px-4 lg:px-0 pt-6 pb-4', focusMode && 'hidden')}>
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <button onClick={() => navigate(`/profile/${thought.authorId}`)}>
@@ -838,7 +914,7 @@ export default function ThoughtDetail() {
               />
 
               {/* Agree / Disagree */}
-              <div className="relative mx-4 lg:mx-0 mb-4">
+              <div className={cn('relative mx-4 lg:mx-0 mb-4', focusMode && 'hidden')}>
                 <div className={cn('bg-[hsl(var(--surface))] border border-[hsl(var(--border-subtle))] rounded-2xl p-5', !user && 'blur-sm select-none pointer-events-none')}>
 
                 <p className="text-sm font-medium text-[hsl(var(--text-secondary))] mb-4 text-center">
@@ -871,7 +947,7 @@ export default function ThoughtDetail() {
               </div>
 
               {/* Save + Share (desktop) */}
-              <div className="hidden lg:flex mx-0 items-center gap-3 mb-8">
+              <div className={cn(focusMode ? 'hidden' : 'hidden lg:flex', 'mx-0 items-center gap-3 mb-8')}>
                 <button onClick={handleSave} className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors', thought.isSaved ? 'border-[hsl(var(--accent-primary))]/30 bg-[hsl(var(--accent-primary))]/10 text-[hsl(var(--accent-primary))]' : 'border-[hsl(var(--border-subtle))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-secondary))]')}>
                   <Star className="w-4 h-4" fill={thought.isSaved ? 'currentColor' : 'none'} /> {thought.isSaved ? 'Saved' : 'Save'}
                 </button>
@@ -881,7 +957,7 @@ export default function ThoughtDetail() {
               </div>
 
               {/* Desktop discussion */}
-              <div className="hidden lg:block mx-0">
+              <div className={cn(focusMode ? 'hidden' : 'hidden lg:block', 'mx-0')}>
                 <DiscussionPanel
                   thoughtId={thought.id}
                   comments={comments}
@@ -895,7 +971,7 @@ export default function ThoughtDetail() {
             </article>
 
             {/* ── Right sidebar (desktop) ── */}
-            <aside className="hidden lg:block">
+            <aside className={focusMode ? 'hidden' : 'hidden lg:block'}>
               <div className="sticky top-[120px]">
                 <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border-subtle))] rounded-2xl p-5">
                   <p className="text-xs font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest mb-3">More like this</p>
@@ -908,7 +984,7 @@ export default function ThoughtDetail() {
       </div>
 
       {/* ── Mobile bottom nav ── */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[hsl(var(--background))]/95 backdrop-blur-sm border-t border-[hsl(var(--border-subtle))]">
+      <div className={cn('lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[hsl(var(--background))]/95 backdrop-blur-sm border-t border-[hsl(var(--border-subtle))]', focusMode && 'hidden')}>
         <div className="flex items-center justify-around px-2 py-2 max-w-lg mx-auto">
           <button onClick={() => handleVote('agree')} className={cn('flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-[60px]', userVote === 'agree' ? 'text-[hsl(var(--accent-primary))]' : 'text-[hsl(var(--text-muted))]')}>
             <ThumbsUp className="w-5 h-5" /><span className="text-[10px] font-medium">{agreeCount}</span>

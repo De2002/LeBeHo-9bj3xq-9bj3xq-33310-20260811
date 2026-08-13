@@ -132,6 +132,22 @@ export default function Inbox() {
 
   useEffect(() => { fetchThoughts(); }, [fetchThoughts]);
 
+  useEffect(() => {
+    const handleSavedChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; isSaved: boolean }>).detail;
+      if (!detail?.id) return;
+      setSavedIdsState(previous => {
+        const next = new Set(previous);
+        if (detail.isSaved) next.add(detail.id); else next.delete(detail.id);
+        persistSaved(next);
+        setThoughts(current => current.map(t => t.id === detail.id ? { ...t, isSaved: detail.isSaved } : t));
+        return next;
+      });
+    };
+    window.addEventListener('lebelho:saved-changed', handleSavedChange);
+    return () => window.removeEventListener('lebelho:saved-changed', handleSavedChange);
+  }, []);
+
   const handleSave = async (id: string) => {
     if (!user) return;
     const isSaved = savedIds.has(id);
