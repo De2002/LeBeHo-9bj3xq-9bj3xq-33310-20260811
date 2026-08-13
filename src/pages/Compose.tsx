@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { ClipboardEvent } from 'react';
+import type { ClipboardEvent, FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { CATEGORIES, Category } from '@/types';
@@ -438,62 +438,84 @@ export default function Compose() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(draftId);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const isPublishing = useRef(false);
 
-  const insertAtCursor = useCallback((value: string) => {
-    const textarea = bodyRef.current;
-    if (!textarea) {
-      setBody(current => current + value);
-      return;
-    }
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    setBody(current => `${current.slice(0, start)}${value}${current.slice(end)}`);
-    requestAnimationFrame(() => {
-      const cursor = start + value.length;
-      textarea.focus();
-      textarea.setSelectionRange(cursor, cursor);
-    });
+  const htmlToMarkdown = useCallback((html: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const convert = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+      if (!(node instanceof HTMLElement)) return Array.from(node.childNodes).map(convert).join('');
+      const content = Array.from(node.childNodes).map(convert).join('');
+      if (node.tagName === 'IMG') {
+        const src = node.getAttribute('src');
+        return src ? `![${node.getAttribute('alt') || 'Embedded image'}](${src})` : '';
+      }
+      if (node.tagName === 'BR') return '\n';
+      if (['DIV', 'P'].includes(node.tagName)) return `${content}\n`;
+      if (node.tagName === 'LI') return `- ${content}\n`;
+      if (node.tagName === 'STRONG' || node.tagName === 'B') return `**${content}**`;
+      if (node.tagName === 'EM' || node.tagName === 'I') return `*${content}*`;
+      return content;
+    };
+    return Array.from(doc.body.childNodes).map(convert).join('').replace(/\n{3,}/g, '\n\n').trim();
   }, []);
 
-  const handleBodyPaste = useCallback(async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+  const markdownToEditorHtml = useCallback((markdown: string) => {
+    const escaped = markdown.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escaped
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="my-2 max-h-64 max-w-full rounded-lg" />')
+      .replace(/\n/g, '<br />');
+  }, []);
+
+  const syncBodyFromEditor = useCallback((editor: HTMLDivElement | null) => {
+    if (editor) setBody(htmlToMarkdown(editor.innerHTML));
+  }, [htmlToMarkdown]);
+
+  useEffect(() => {
+    if (!previewMode && bodyRef.current && body && !bodyRef.current.innerHTML) {
+      bodyRef.current.innerHTML = markdownToEditorHtml(body);
+    }
+  }, [body, markdownToEditorHtml, previewMode]);
+
+  const handleBodyInput = useCallback((event: FormEvent<HTMLDivElement>) => {
+    syncBodyFromEditor(event.currentTarget);
+  }, [syncBodyFromEditor]);
+
+  const handleBodyPaste = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
     const imageItem = Array.from(event.clipboardData.items).find(item => item.type.startsWith('image/'));
     const imageFile = imageItem?.getAsFile();
     if (!imageFile) return;
 
     event.preventDefault();
-    const mediaLabel = imageFile.type === 'image/gif' ? 'GIF' : 'Image';
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const extension = imageFile.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
-        const path = `${user.id}/thought-images/${generateId()}.${extension}`;
-        const { error } = await supabase.storage.from('avatars').upload(path, imageFile, {
-          contentType: imageFile.type,
-          upsert: false,
-        });
-        if (!error) {
-          const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-          insertAtCursor(`![${mediaLabel}](${data.publicUrl})`);
-          toast.success(`${mediaLabel} uploaded and added to your thought`);
-          return;
-        }
-      }
-    } catch {
-      // Fall through to an inline data URL so the paste still works without storage setup.
-    }
-
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : null;
-      if (!dataUrl) return;
-      insertAtCursor(`![${mediaLabel}](${dataUrl})`);
-      toast.success(`${mediaLabel} added to your thought`);
+      const editor = bodyRef.current;
+      if (!dataUrl || !editor) return;
+      const image = document.createElement('img');
+      image.src = dataUrl;
+      image.alt = imageFile.type === 'image/gif' ? 'GIF' : 'Embedded image';
+      image.className = 'my-2 max-h-64 max-w-full rounded-lg';
+      const selection = window.getSelection();
+      if (selection?.rangeCount) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(image);
+        range.setStartAfter(image);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        editor.append(image);
+      }
+      syncBodyFromEditor(editor);
+      toast.success(`${imageFile.type === 'image/gif' ? 'GIF' : 'Image'} added to your thought`);
     };
-    reader.onerror = () => toast.error(`Could not read the pasted ${mediaLabel.toLowerCase()}`);
+    reader.onerror = () => toast.error('Could not read the pasted media');
     reader.readAsDataURL(imageFile);
-  }, [insertAtCursor]);
+  }, [syncBodyFromEditor]);
 
   useEffect(() => {
     if (!draftId || !authUser) return;
@@ -593,8 +615,7 @@ export default function Compose() {
   </div>
   ) : (
               <>
-                <textarea ref={bodyRef} onPaste={handleBodyPaste} className="w-full bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors resize-none text-sm leading-relaxed min-h-[160px] font-mono"
-  placeholder={"Why do you think this? Share your honest reasoning...\n\nSupports **bold**, *italic*, # headings, > quotes, - lists, and ![Alt text](https://example.com/image.gif)"} value={body} onChange={e => setBody(e.target.value)} rows={8} />
+                <div ref={bodyRef} contentEditable={!previewMode} role="textbox" aria-multiline="true" onInput={handleBodyInput} onPaste={handleBodyPaste} className="w-full min-h-[160px] bg-[hsl(var(--input-bg))] border border-[hsl(var(--border-subtle))] rounded-xl px-4 py-3.5 text-[hsl(var(--text-primary))] outline-none focus:border-[hsl(var(--accent-primary))]/50 transition-colors text-sm leading-relaxed font-mono empty:before:text-[hsl(var(--text-muted))] empty:before:content-[attr(data-placeholder)]" data-placeholder="Why do you think this? Add reasoning, then paste a GIF or image from Gboard…" />
   <p className="text-[10px] text-[hsl(var(--text-muted))]/70 mt-1">Markdown: **bold** · *italic* · # Heading · {'>'} Quote · - List · ![Alt text](image-or-gif-url)</p>
               </>
             )}
