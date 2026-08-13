@@ -6,6 +6,21 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
+const IMAGE_URL_PATTERN = /^(https?:\/\/\S+\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#]\S*)?)$/i;
+
+function normalizeImageUrls(content: string) {
+  return content
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      if (IMAGE_URL_PATTERN.test(trimmed) && !trimmed.startsWith('![')) {
+        return `![Embedded image](${trimmed})`;
+      }
+      return line;
+    })
+    .join('\n');
+}
+
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
   return (
     <div className={`markdown-content ${className}`}>
@@ -38,7 +53,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
           ),
         }}
       >
-        {content}
+        {normalizeImageUrls(content)}
       </ReactMarkdown>
     </div>
   );
