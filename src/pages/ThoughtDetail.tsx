@@ -542,7 +542,7 @@ export default function ThoughtDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
-  const [inboxIds, setInboxIds] = useState<string[]>([]);
+  const [thoughtIds, setThoughtIds] = useState<string[]>([]);
   const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -615,18 +615,19 @@ export default function ThoughtDetail() {
     load();
   }, [id, user]);
 
-  // Load the user's inbox order for mobile reading navigation.
+  // Load a shared published-point order so swipe navigation also works for guests.
   useEffect(() => {
-    if (!user) { setInboxIds([]); return; }
-    const loadInboxIds = async () => {
-      const { data: follows } = await supabase.from('user_follows').select('following_id').eq('follower_id', user.id);
-      const followedIds = (follows ?? []).map(row => row.following_id as string).filter(Boolean);
-      if (followedIds.length === 0) { setInboxIds([]); return; }
-      const { data } = await supabase.from('thoughts').select('id').eq('is_draft', false).in('author_id', followedIds).order('published_at', { ascending: false }).limit(100);
-      setInboxIds((data ?? []).map(row => row.id as string));
+    const loadThoughtIds = async () => {
+      const { data } = await supabase
+        .from('thoughts')
+        .select('id')
+        .eq('is_draft', false)
+        .order('published_at', { ascending: false })
+        .limit(100);
+      setThoughtIds((data ?? []).map(row => row.id as string));
     };
-    loadInboxIds();
-  }, [user]);
+    loadThoughtIds();
+  }, []);
 
   // Load comments
   const fetchComments = useCallback(async () => {
@@ -646,13 +647,13 @@ export default function ThoughtDetail() {
 
   useEffect(() => { fetchComments(); }, [fetchComments]);
 
-  const navigateInbox = useCallback((direction: 'next' | 'previous') => {
-    if (!id || inboxIds.length === 0) return;
-    const currentIndex = inboxIds.indexOf(id);
+  const navigateThought = useCallback((direction: 'next' | 'previous') => {
+    if (!id || thoughtIds.length === 0) return;
+    const currentIndex = thoughtIds.indexOf(id);
     if (currentIndex < 0) return;
     const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex >= 0 && nextIndex < inboxIds.length) navigate(`/thought/${inboxIds[nextIndex]}`);
-  }, [id, inboxIds, navigate]);
+    if (nextIndex >= 0 && nextIndex < thoughtIds.length) navigate(`/thought/${thoughtIds[nextIndex]}`);
+  }, [id, thoughtIds, navigate]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -673,7 +674,7 @@ export default function ThoughtDetail() {
     const dx = event.changedTouches[0].clientX - start.x;
     const dy = event.changedTouches[0].clientY - start.y;
     if (Math.abs(dx) < 70 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
-    navigateInbox(dx < 0 ? 'next' : 'previous');
+    navigateThought(dx < 0 ? 'next' : 'previous');
   };
 
   // Sheet backdrop close
