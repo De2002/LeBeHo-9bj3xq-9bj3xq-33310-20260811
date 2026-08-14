@@ -66,8 +66,12 @@ function ForYouStrip() {
   if (items.length === 0) return null;
 
   return (
-    <div className="sticky top-0 z-20 bg-[hsl(var(--background))] border-b border-[hsl(var(--border-subtle))] flex-shrink-0">
-      <div className="flex items-center gap-3 px-4 py-2 overflow-x-auto scrollbar-hide">
+  <div
+  className="sticky top-0 z-20 bg-[hsl(var(--background))] border-b border-[hsl(var(--border-subtle))] flex-shrink-0"
+  onTouchStart={(event) => event.stopPropagation()}
+  onTouchEnd={(event) => event.stopPropagation()}
+  >
+  <div className="flex items-center gap-3 px-4 py-2 overflow-x-auto scrollbar-hide">
         <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest flex-shrink-0">For You</span>
         {items.map(item => (
           <button
